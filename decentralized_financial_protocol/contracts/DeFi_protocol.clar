@@ -232,3 +232,61 @@
   )
 )
 
+
+;; Comprehensive Insurance Product
+(define-public (purchase-insurance 
+  (coverage-type (string-ascii 20))
+  (coverage-amount uint)
+  (ft-token <ft-trait>)
+) 
+  (let 
+    (
+      (current-time stacks-block-height)
+      ;; Inline Premium Calculation
+      (premium-calculation 
+        (/ 
+          (* 
+            coverage-amount 
+            (if (is-eq coverage-type "life")
+              u500
+              (if (is-eq coverage-type "health")
+                u750
+                (if (is-eq coverage-type "crypto")
+                  u250
+                  (if (is-eq coverage-type "property")
+                    u600
+                    u100
+                  )
+                )
+              )
+            )
+          ) 
+          PRECISION
+        )
+      )
+      (coverage-duration u2628000) ;; Approximately 1 year in blocks
+    )
+    ;; Protocol Pause Check
+    (asserts! (not (var-get protocol-paused)) ERR-OPERATION-FAILED)
+    
+    ;; Validate Insurance Purchase
+    (asserts! (> coverage-amount u0) ERR-INVALID-PARAMETER)
+    
+    ;; Transfer Premium to Contract
+    (try! (contract-call? ft-token transfer premium-calculation tx-sender (as-contract tx-sender) none))
+    
+    ;; Create Insurance Policy
+    (map-set user-insurance 
+      tx-sender
+      {
+        coverage-amount: coverage-amount,
+        premium-paid: premium-calculation,
+        last-premium-time: current-time,
+        coverage-type: coverage-type,
+        expiration-time: (+ current-time coverage-duration)
+      }
+    )
+    
+    (ok true)
+  )
+)
