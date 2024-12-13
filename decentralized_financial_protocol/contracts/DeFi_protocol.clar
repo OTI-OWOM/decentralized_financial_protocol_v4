@@ -342,3 +342,44 @@
     (ok (var-get protocol-paused))
   )
 )
+
+;; User Asset Withdrawal Mechanism
+(define-public (withdraw-assets 
+  (pool-name (string-ascii 30)) 
+  (withdraw-amount uint) 
+  (ft-token <ft-trait>)
+)
+  (let 
+    (
+      (user-vault (unwrap! 
+        (map-get? multi-asset-vault {user: tx-sender, asset-type: pool-name}) 
+        ERR-INSUFFICIENT-BALANCE
+      ))
+      (current-time stacks-block-height)
+      ;; Add a recipient principal, defaulting to tx-sender
+      (recipient tx-sender)
+    )
+    ;; Protocol Pause Check
+    (asserts! (not (var-get protocol-paused)) ERR-OPERATION-FAILED)
+    
+    ;; Validate Withdrawal
+    (asserts! (>= (get total-balance user-vault) withdraw-amount) ERR-INSUFFICIENT-BALANCE)
+    
+    ;; Transfer Assets Back to User
+    (try! (as-contract (contract-call? ft-token transfer withdraw-amount recipient recipient none)))
+    
+    ;; Update User Vault
+    (map-set multi-asset-vault 
+      {user: tx-sender, asset-type: pool-name}
+      {
+        total-balance: (- (get total-balance user-vault) withdraw-amount),
+        locked-balance: (- (get locked-balance user-vault) withdraw-amount),
+        last-activity: current-time,
+        yield-rate: (get yield-rate user-vault),
+        rewards-accumulated: (get rewards-accumulated user-vault)
+      }
+    )
+    
+    (ok true)
+  )
+)
