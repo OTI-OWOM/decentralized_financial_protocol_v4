@@ -60,7 +60,7 @@
 (define-map multi-asset-vault 
   {
     user: principal, 
-    asset-type: (string-ascii 20)
+    asset-type: (string-ascii 30)
   } 
   {
     total-balance: uint,
@@ -105,6 +105,86 @@
     total-rewards: uint,
     apr: uint,
     lock-period: uint,
-    early-unstake-penalty: uint
+    early-unstake-penalty: uint,
+    is-active: bool,
+    min-deposit: uint,
+    max-deposit: uint,
   }
+)
+
+;; Cross-Chain Transfer Mechanism
+(define-map cross-chain-transfers 
+  uint
+  {
+    transfer-id: uint,
+    sender: principal,
+    recipient: principal,
+    amount: uint,
+    source-chain: (string-ascii 20),
+    destination-chain: (string-ascii 20),
+    status: (string-ascii 20),
+    timestamp: uint
+  }
+)
+
+;; Global Variables for Protocol Tracking
+(define-data-var total-cross-chain-transfers uint u0)
+(define-data-var total-protocol-assets uint u0)
+(define-data-var total-protocol-liabilities uint u0)
+(define-data-var protocol-paused bool false)
+
+;; Advanced Staking Mechanism with Enhanced Features
+(define-public (create-stake 
+  (pool-name (string-ascii 30))
+  (stake-amount uint)
+  (ft-token <ft-trait>)
+)
+  (let 
+    (
+      (pool (unwrap! (map-get? staking-pools pool-name) ERR-INVALID-PARAMETER))
+      (current-time stacks-block-height)
+      (user-vault (default-to 
+        {
+          total-balance: u0, 
+          locked-balance: u0, 
+          last-activity: current-time,
+          yield-rate: u0,
+          rewards-accumulated: u0
+        } 
+        (map-get? multi-asset-vault {user: tx-sender, asset-type: pool-name})
+      ))
+    )
+    ;; Protocol Pause Check
+    (asserts! (not (var-get protocol-paused)) ERR-OPERATION-FAILED)
+    
+    ;; Validate Staking Parameters
+    (asserts! (get is-active pool) ERR-OPERATION-FAILED)
+    (asserts! (>= stake-amount (get min-deposit pool)) ERR-INVALID-PARAMETER)
+    (asserts! (<= stake-amount (get max-deposit pool)) ERR-LIMIT-EXCEEDED)
+    
+    ;; Transfer Tokens to Contract
+    (try! (contract-call? ft-token transfer stake-amount tx-sender (as-contract tx-sender) none))
+    
+    ;; Update Staking Pool
+    (map-set staking-pools 
+      pool-name 
+      (merge pool {
+        total-staked: (+ (get total-staked pool) stake-amount)
+      })
+    )
+    
+    ;; Update User Vault
+    (map-set multi-asset-vault 
+      {user: tx-sender, asset-type: pool-name}
+      {
+        total-balance: (+ (get total-balance user-vault) stake-amount),
+        locked-balance: (+ (get locked-balance user-vault) stake-amount),
+        last-activity: current-time,
+        yield-rate: (get apr pool),
+        rewards-accumulated: (get rewards-accumulated user-vault)
+      }
+    )
+    
+    (ok true)
+  )
 )
