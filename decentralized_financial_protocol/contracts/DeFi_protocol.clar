@@ -290,3 +290,17 @@
     (ok true)
   )
 )
+
+;; Protocol Health and Risk Assessment
+(define-read-only (get-protocol-health-score)
+  (let 
+    (
+      (total-assets (var-get total-protocol-assets))
+      (total-liabilities (var-get total-protocol-liabilities))
+    )
+    (if (> total-assets u0)
+      (/ (* (- total-assets total-liabilities) PRECISION) total-assets)
+      u0
+    )
+  )
+)
