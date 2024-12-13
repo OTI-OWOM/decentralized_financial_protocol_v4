@@ -188,3 +188,47 @@
     (ok true)
   )
 )
+
+;; Enhanced Cross-Chain Transfer Mechanism
+(define-public (initiate-cross-chain-transfer 
+  (recipient principal)
+  (amount uint)
+  (destination-chain (string-ascii 20))
+  (ft-token <ft-trait>)
+)
+  (let 
+    (
+      (transfer-id (+ (var-get total-cross-chain-transfers) u1))
+      (current-time stacks-block-height)
+    )
+    ;; Protocol Pause Check
+    (asserts! (not (var-get protocol-paused)) ERR-OPERATION-FAILED)
+    
+    ;; Validate Transfer Parameters
+    (asserts! (> amount u0) ERR-INVALID-PARAMETER)
+    
+    ;; Transfer Tokens to Contract
+    (try! (contract-call? ft-token transfer amount tx-sender (as-contract tx-sender) none))
+    
+    ;; Create Cross-Chain Transfer Record
+    (map-set cross-chain-transfers 
+      transfer-id
+      {
+        transfer-id: transfer-id,
+        sender: tx-sender,
+        recipient: recipient,
+        amount: amount,
+        source-chain: "stacks",
+        destination-chain: destination-chain,
+        status: "pending",
+        timestamp: current-time
+      }
+    )
+    
+    ;; Increment Transfer Counter
+    (var-set total-cross-chain-transfers transfer-id)
+    
+    (ok transfer-id)
+  )
+)
+
