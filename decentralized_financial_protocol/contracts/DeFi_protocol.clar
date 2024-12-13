@@ -84,3 +84,27 @@
     performance-fee: uint
   }
 )
+
+;; Comprehensive User Insurance Tracking
+(define-map user-insurance 
+  principal
+  {
+    coverage-amount: uint,
+    premium-paid: uint,
+    last-premium-time: uint,
+    coverage-type: (string-ascii 20),
+    expiration-time: uint
+  }
+)
+
+;; Staking Pools with Enhanced Tracking
+(define-map staking-pools 
+  (string-ascii 30)
+  {
+    total-staked: uint,
+    total-rewards: uint,
+    apr: uint,
+    lock-period: uint,
+    early-unstake-penalty: uint
+  }
+)
