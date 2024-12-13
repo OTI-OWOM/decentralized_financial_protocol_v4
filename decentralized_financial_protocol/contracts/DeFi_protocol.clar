@@ -232,3 +232,154 @@
   )
 )
 
+
+;; Comprehensive Insurance Product
+(define-public (purchase-insurance 
+  (coverage-type (string-ascii 20))
+  (coverage-amount uint)
+  (ft-token <ft-trait>)
+) 
+  (let 
+    (
+      (current-time stacks-block-height)
+      ;; Inline Premium Calculation
+      (premium-calculation 
+        (/ 
+          (* 
+            coverage-amount 
+            (if (is-eq coverage-type "life")
+              u500
+              (if (is-eq coverage-type "health")
+                u750
+                (if (is-eq coverage-type "crypto")
+                  u250
+                  (if (is-eq coverage-type "property")
+                    u600
+                    u100
+                  )
+                )
+              )
+            )
+          ) 
+          PRECISION
+        )
+      )
+      (coverage-duration u2628000) ;; Approximately 1 year in blocks
+    )
+    ;; Protocol Pause Check
+    (asserts! (not (var-get protocol-paused)) ERR-OPERATION-FAILED)
+    
+    ;; Validate Insurance Purchase
+    (asserts! (> coverage-amount u0) ERR-INVALID-PARAMETER)
+    
+    ;; Transfer Premium to Contract
+    (try! (contract-call? ft-token transfer premium-calculation tx-sender (as-contract tx-sender) none))
+    
+    ;; Create Insurance Policy
+    (map-set user-insurance 
+      tx-sender
+      {
+        coverage-amount: coverage-amount,
+        premium-paid: premium-calculation,
+        last-premium-time: current-time,
+        coverage-type: coverage-type,
+        expiration-time: (+ current-time coverage-duration)
+      }
+    )
+    
+    (ok true)
+  )
+)
+
+;; Protocol Health and Risk Assessment
+(define-read-only (get-protocol-health-score)
+  (let 
+    (
+      (total-assets (var-get total-protocol-assets))
+      (total-liabilities (var-get total-protocol-liabilities))
+    )
+    (if (> total-assets u0)
+      (/ (* (- total-assets total-liabilities) PRECISION) total-assets)
+      u0
+    )
+  )
+)
+
+;; Protocol Management Functions
+(define-public (initialize-advanced-protocol)
+  (begin
+    ;; Owner Authorization
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-UNAUTHORIZED)
+    
+    ;; Initialize Core Protocol Parameters
+    (map-set financial-products 
+      "yield-farming"
+      {
+        product-id: u1,
+        min-deposit: u100,
+        max-deposit: u100000,
+        base-yield: u500,
+        risk-level: u3,
+        is-active: true,
+        performance-fee: u50
+      }
+    )
+    
+    (ok true)
+  )
+)
+
+
+;; Enhanced Emergency Protocol Pause
+(define-public (pause-protocol)
+  (begin
+    ;; Owner Authorization
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-UNAUTHORIZED)
+    
+    ;; Toggle Protocol Pause State
+    (var-set protocol-paused (not (var-get protocol-paused)))
+    
+    (ok (var-get protocol-paused))
+  )
+)
+
+;; User Asset Withdrawal Mechanism
+(define-public (withdraw-assets 
+  (pool-name (string-ascii 30)) 
+  (withdraw-amount uint) 
+  (ft-token <ft-trait>)
+)
+  (let 
+    (
+      (user-vault (unwrap! 
+        (map-get? multi-asset-vault {user: tx-sender, asset-type: pool-name}) 
+        ERR-INSUFFICIENT-BALANCE
+      ))
+      (current-time stacks-block-height)
+      ;; Add a recipient principal, defaulting to tx-sender
+      (recipient tx-sender)
+    )
+    ;; Protocol Pause Check
+    (asserts! (not (var-get protocol-paused)) ERR-OPERATION-FAILED)
+    
+    ;; Validate Withdrawal
+    (asserts! (>= (get total-balance user-vault) withdraw-amount) ERR-INSUFFICIENT-BALANCE)
+    
+    ;; Transfer Assets Back to User
+    (try! (as-contract (contract-call? ft-token transfer withdraw-amount recipient recipient none)))
+    
+    ;; Update User Vault
+    (map-set multi-asset-vault 
+      {user: tx-sender, asset-type: pool-name}
+      {
+        total-balance: (- (get total-balance user-vault) withdraw-amount),
+        locked-balance: (- (get locked-balance user-vault) withdraw-amount),
+        last-activity: current-time,
+        yield-rate: (get yield-rate user-vault),
+        rewards-accumulated: (get rewards-accumulated user-vault)
+      }
+    )
+    
+    (ok true)
+  )
+)
