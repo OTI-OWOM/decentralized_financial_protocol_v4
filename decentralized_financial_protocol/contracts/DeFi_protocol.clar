@@ -304,3 +304,41 @@
     )
   )
 )
+
+;; Protocol Management Functions
+(define-public (initialize-advanced-protocol)
+  (begin
+    ;; Owner Authorization
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-UNAUTHORIZED)
+    
+    ;; Initialize Core Protocol Parameters
+    (map-set financial-products 
+      "yield-farming"
+      {
+        product-id: u1,
+        min-deposit: u100,
+        max-deposit: u100000,
+        base-yield: u500,
+        risk-level: u3,
+        is-active: true,
+        performance-fee: u50
+      }
+    )
+    
+    (ok true)
+  )
+)
+
+
+;; Enhanced Emergency Protocol Pause
+(define-public (pause-protocol)
+  (begin
+    ;; Owner Authorization
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-UNAUTHORIZED)
+    
+    ;; Toggle Protocol Pause State
+    (var-set protocol-paused (not (var-get protocol-paused)))
+    
+    (ok (var-get protocol-paused))
+  )
+)
