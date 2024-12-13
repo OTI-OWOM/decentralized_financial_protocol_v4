@@ -44,3 +44,43 @@
 (define-constant CONTRACT-OWNER tx-sender)
 (define-constant PROTOCOL-VERSION u4)
 (define-constant PRECISION u10000)
+(define-constant MAX-UINT u340282366920938463463374607431768211455)
+
+;; Extended Error Codes with Descriptive Messages
+(define-constant ERR-UNAUTHORIZED (err u1))
+(define-constant ERR-INSUFFICIENT-BALANCE (err u2))
+(define-constant ERR-OPERATION-FAILED (err u3))
+(define-constant ERR-INVALID-PARAMETER (err u4))
+(define-constant ERR-LIMIT-EXCEEDED (err u5))
+(define-constant ERR-TRANSFER-FAILED (err u6))
+(define-constant ERR-INSUFFICIENT-COVERAGE (err u7))
+
+;; Advanced Storage Structures
+;; Multi-Asset Vault for Comprehensive Asset Management
+(define-map multi-asset-vault 
+  {
+    user: principal, 
+    asset-type: (string-ascii 20)
+  } 
+  {
+    total-balance: uint,
+    locked-balance: uint,
+    last-activity: uint,
+    yield-rate: uint,
+    rewards-accumulated: uint
+  }
+)
+
+;; Financial Products Registry
+(define-map financial-products 
+  (string-ascii 30)
+  {
+    product-id: uint,
+    min-deposit: uint,
+    max-deposit: uint,
+    base-yield: uint,
+    risk-level: uint,
+    is-active: bool,
+    performance-fee: uint
+  }
+)
